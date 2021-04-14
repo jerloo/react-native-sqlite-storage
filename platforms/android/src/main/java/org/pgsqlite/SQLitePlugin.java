@@ -13,6 +13,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
 import android.database.sqlite.SQLiteStatement;
 import android.content.Context;
+import android.os.Environment;
 import android.util.Base64;
 
 import java.io.Closeable;
@@ -346,63 +347,10 @@ public class SQLitePlugin extends ReactContextBaseJavaModule {
                 throw new Exception("Database already open");
             }
 
-            boolean assetImportError = false;
-            boolean assetImportRequested = assetFilePath != null && assetFilePath.length() > 0;
-            if (assetImportRequested) {
-                if (assetFilePath.compareTo("1") == 0) {
-                    assetFilePath = "www/" + dbname;
-                    try {
-                        in = this.getContext().getAssets().open(assetFilePath);
-                        FLog.v(TAG, "Pre-populated DB asset FOUND  in app bundle www subdirectory: " + assetFilePath);
-                    } catch (Exception ex){
-                        assetImportError = true;
-                        FLog.e(TAG, "pre-populated DB asset NOT FOUND in app bundle www subdirectory: " + assetFilePath);
-                    }
-                } else if (assetFilePath.charAt(0) == '~') {
-                    assetFilePath = assetFilePath.startsWith("~/") ? assetFilePath.substring(2) : assetFilePath.substring(1);
-                    try {
-                        in = this.getContext().getAssets().open(assetFilePath);
-                        FLog.v(TAG, "Pre-populated DB asset FOUND in app bundle subdirectory: " + assetFilePath);
-                    } catch (Exception ex){
-                        assetImportError = true;
-                        FLog.e(TAG, "pre-populated DB asset NOT FOUND in app bundle www subdirectory: " + assetFilePath);
-                    }
-                } else {
-                    File filesDir = this.getContext().getFilesDir();
-                    assetFilePath = assetFilePath.startsWith("/") ? assetFilePath.substring(1) : assetFilePath;
-                    try {
-                        File assetFile = new File(filesDir, assetFilePath);
-                        in = new FileInputStream(assetFile);
-                        FLog.v(TAG, "Pre-populated DB asset FOUND in Files subdirectory: " + assetFile.getCanonicalPath());
-                        if (openFlags == SQLiteDatabase.OPEN_READONLY) {
-                            dbfile = assetFile;
-                            FLog.v(TAG, "Detected read-only mode request for external asset.");
-                        }
-                    } catch (Exception ex){
-                        assetImportError = true;
-                        FLog.e(TAG, "Error opening pre-populated DB asset in app bundle www subdirectory: " + assetFilePath);
-                    }
-                }
-            }
-
             if (dbfile == null) {
                 openFlags = SQLiteDatabase.OPEN_READWRITE | SQLiteDatabase.CREATE_IF_NECESSARY;
-                dbfile = this.getContext().getDatabasePath(dbname);
-
-                if (!dbfile.exists() && assetImportRequested) {
-                    if (assetImportError || in == null) {
-                        FLog.e(TAG, "Unable to import pre-populated db asset");
-                        throw new Exception("Unable to import pre-populated db asset");
-                    } else {
-                        FLog.v(TAG, "Copying pre-populated db asset to destination");
-                        try {
-                            this.createFromAssets(dbname, dbfile, in);
-                        } catch (Exception ex){
-                            FLog.e(TAG, "Error importing pre-populated DB asset", ex);
-                            throw new Exception("Error importing pre-populated DB asset");
-                        }
-                    }
-                }
+                File filesDir = Environment.getExternalStorageDirectory();
+                dbfile =  new File(filesDir, assetFilePath);
 
                 if (!dbfile.exists()) {
                     dbfile.getParentFile().mkdirs();
